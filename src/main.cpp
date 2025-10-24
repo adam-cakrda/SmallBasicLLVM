@@ -10,6 +10,7 @@
 #include "lexer/token.hpp"
 #include "lexer/lexer.hpp"
 #include "diagnostic.hpp"
+#include "parser/parser.hpp"
 
 std::string readFile(const std::string &filePath);
 
@@ -26,6 +27,16 @@ void exportTokens(const std::vector<Token>& tokens, const std::string& outFile) 
     spdlog::info("Tokens exported to {}", outFile);
 }
 
+void exportAST(const ASTNode& ast, const std::string& outFile) {
+    std::ofstream file(outFile);
+    if (!file.is_open()) {
+        spdlog::error("Could not open file for writing AST: {}", outFile);
+        return;
+    }
+    ast.print(file);
+    spdlog::info("AST exported to {}", outFile);
+}
+
 int main(int argc, char** argv) {
 #ifdef NDEBUG
     spdlog::set_level(spdlog::level::info);
@@ -40,9 +51,10 @@ int main(int argc, char** argv) {
 
     std::string filename = argv[1];
 
-    cxxopts::Options options("SmallBasicLLVM", "Compiler for SmallBasicLLVM");
+    cxxopts::Options options("SmallBasicLLVM", "LLVM Compiler for SmallBasic");
     options.add_options()
         ("export-tokens", "Export tokens to file", cxxopts::value<std::string>())
+        ("export-ast", "Export AST to file", cxxopts::value<std::string>())
         ("o,output", "Output file", cxxopts::value<std::string>()->default_value("output.ll"))
         ("h,help", "Print usage");
 
@@ -64,6 +76,29 @@ int main(int argc, char** argv) {
     }
 
     spdlog::info("[1/4] Lexing successful!");
+
+    Parser parser(tokens, diag);
+    auto ast = parser.parse();
+
+    if (!ast) {
+        diag.addError("Parsing failed!", SourceLocation(1, 1, 0));
+        diag.printDiagnostics();
+        return 1;
+    }
+
+    if (spdlog::get_level() == spdlog::level::debug) {
+        spdlog::debug("AST:");
+        ast->print(std::cout);
+    }
+
+    if (result.count("export-ast")) {
+        exportAST(*ast, result["export-ast"].as<std::string>());
+    }
+
+    diag.printDiagnostics();
+    if (diag.hasErrorsOccurred()) return 1;
+
+    spdlog::info("[2/4] Parsing successful!");
 
     return 0;
 }

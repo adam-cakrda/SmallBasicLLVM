@@ -30,9 +30,8 @@ llvm_map_components_to_libnames(llvm_libs
 
 add_executable(SmallBasicLLVM src/main.cpp
         src/lexer/lexer.cpp
-        src/parser/ast.hpp
         src/parser/parser.cpp
-        src/parser/parser.hpp)
+        src/parser/ast.cpp)
 
 target_compile_definitions(SmallBasicLLVM PRIVATE VERSION="0.5.0")
 target_link_libraries(SmallBasicLLVM ${llvm_libs} spdlog::spdlog)
