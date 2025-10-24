@@ -11,6 +11,7 @@
 #include "lexer/lexer.hpp"
 #include "diagnostic.hpp"
 #include "parser/parser.hpp"
+#include "semantic/semantic.hpp"
 
 std::string readFile(const std::string &filePath);
 
@@ -99,6 +100,14 @@ int main(int argc, char** argv) {
     if (diag.hasErrorsOccurred()) return 1;
 
     spdlog::info("[2/4] Parsing successful!");
+
+    SemanticAnalyzer analyzer(diag);
+    analyzer.analyze(*ast);
+
+    diag.printDiagnostics();
+    if (diag.hasErrorsOccurred()) return 1;
+
+    spdlog::info("[3/4] Semantic analysis successful!");
 
     return 0;
 }
