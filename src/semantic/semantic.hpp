@@ -5,7 +5,7 @@
 #include <vector>
 #include "../parser/ast.hpp"
 #include "../diagnostic.hpp"
-#include "../std/registry.hpp"
+#include "../registry/registry.hpp"
 
 class SemanticAnalyzer {
 public:

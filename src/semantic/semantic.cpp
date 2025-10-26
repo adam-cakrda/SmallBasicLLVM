@@ -154,11 +154,15 @@ void SemanticAnalyzer::analyzePropertyAccess(const PropertyAccess& expr, const b
                     );
                 }
             } else if (isAssignment) {
-                reporter.addWarning(
-                    "assigning to property '" + objectName + "." + propertyName + "'",
-                    SourceLocation(expr.line, expr.column, propertyName.length()),
-                    "this property may be read-only"
-                );
+                if (auto info = registry.getProperty(objectName, propertyName)) {
+                    if (info->readOnly) {
+                        reporter.addError(
+                            "cannot assign to read-only property '" + objectName + "." + propertyName + "'",
+                            SourceLocation(expr.line, expr.column, propertyName.length()),
+                            "this property is read-only"
+                        );
+                    }
+                }
             }
         } else {
             checkVariable(objectName, objIdent->line, objIdent->column);

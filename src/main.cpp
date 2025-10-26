@@ -6,37 +6,22 @@
 #include <spdlog/spdlog.h>
 #include <fmt/ranges.h>
 #include <cxxopts.hpp>
+#include <filesystem>
 
 #include "lexer/token.hpp"
 #include "lexer/lexer.hpp"
 #include "diagnostic.hpp"
 #include "parser/parser.hpp"
 #include "semantic/semantic.hpp"
+#include "codegen/codegen.hpp"
 
 std::string readFile(const std::string &filePath);
 
-void exportTokens(const std::vector<Token>& tokens, const std::string& outFile) {
-    std::ofstream file(outFile);
-    if (!file.is_open()) {
-        spdlog::error("Could not open file for writing tokens: {}", outFile);
-        return;
-    }
-    for (const auto& token : tokens) {
-        file << "[" << token.line << ":" << token.column << "] "
-             << tokenTypeToString(token.type) << " : '" << token.value << "'\n";
-    }
-    spdlog::info("Tokens exported to {}", outFile);
-}
+void exportTokens(const std::vector<Token>& tokens, const std::string& outFile);
 
-void exportAST(const ASTNode& ast, const std::string& outFile) {
-    std::ofstream file(outFile);
-    if (!file.is_open()) {
-        spdlog::error("Could not open file for writing AST: {}", outFile);
-        return;
-    }
-    ast.print(file);
-    spdlog::info("AST exported to {}", outFile);
-}
+void exportAST(const ASTNode& ast, const std::string& outFile);
+
+std::string getModuleName(const std::string& filename);
 
 int main(int argc, char** argv) {
 #ifdef NDEBUG
@@ -61,10 +46,17 @@ int main(int argc, char** argv) {
 
     auto result = options.parse(argc - 1, argv + 1);
 
+    if (result.count("help")) {
+        std::cout << options.help() << std::endl;
+        return 0;
+    }
+
     spdlog::info(" --- SmallBasicLLVM Compiler {} ---", VERSION);
 
     std::string source = readFile(filename);
     DiagnosticReporter diag(source, filename);
+
+    spdlog::info("[1/4] Lexing");
 
     Lexer lexer;
     const std::vector<Token> tokens = lexer.tokenize(source, diag);
@@ -76,7 +68,7 @@ int main(int argc, char** argv) {
         exportTokens(tokens, result["export-tokens"].as<std::string>());
     }
 
-    spdlog::info("[1/4] Lexing successful!");
+    spdlog::info("[2/4] Parsing");
 
     Parser parser(tokens, diag);
     auto ast = parser.parse();
@@ -99,7 +91,7 @@ int main(int argc, char** argv) {
     diag.printDiagnostics();
     if (diag.hasErrorsOccurred()) return 1;
 
-    spdlog::info("[2/4] Parsing successful!");
+    spdlog::info("[3/4] Analyzing");
 
     SemanticAnalyzer analyzer(diag);
     analyzer.analyze(*ast);
@@ -107,8 +99,24 @@ int main(int argc, char** argv) {
     diag.printDiagnostics();
     if (diag.hasErrorsOccurred()) return 1;
 
-    spdlog::info("[3/4] Semantic analysis successful!");
+    spdlog::info("[4/4] Codegen");
 
+    CodeGenerator codegen(diag);
+
+    const std::string moduleName = getModuleName(filename);
+
+    if (!codegen.generate(*ast, moduleName)) {
+        diag.printDiagnostics();
+        return 1;
+    }
+
+    diag.printDiagnostics();
+    if (diag.hasErrorsOccurred()) return 1;
+
+    auto outputFile = result["output"].as<std::string>();
+    codegen.emit(outputFile);
+
+    spdlog::info("Compiled {}.sb!", moduleName);
     return 0;
 }
 
@@ -121,4 +129,30 @@ std::string readFile(const std::string &filePath) {
     std::stringstream buffer;
     buffer << file.rdbuf();
     return buffer.str();
+}
+
+std::string getModuleName(const std::string& filename) {
+    const std::filesystem::path p(filename);
+    return p.stem().string();
+}
+
+void exportTokens(const std::vector<Token>& tokens, const std::string& outFile) {
+    std::ofstream file(outFile);
+    if (!file.is_open()) {
+        spdlog::error("Could not open file for writing tokens: {}", outFile);
+        return;
+    }
+    for (const auto& token : tokens) {
+        file << "[" << token.line << ":" << token.column << "] "
+             << tokenTypeToString(token.type) << " : '" << token.value << "'\n";
+    }
+}
+
+void exportAST(const ASTNode& ast, const std::string& outFile) {
+    std::ofstream file(outFile);
+    if (!file.is_open()) {
+        spdlog::error("Could not open file for writing AST: {}", outFile);
+        return;
+    }
+    ast.print(file);
 }
