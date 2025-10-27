@@ -4,6 +4,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <ranges>
 #include <cctype>
 
 #define CAST(Type, var, expr) auto var = dynamic_cast<Type*>(expr)
@@ -428,17 +429,20 @@ void CodeGenerator::generateLabel(LabelStatement& stmt) {
 }
 
 void CodeGenerator::generateSubroutine(SubroutineStatement& stmt) {
+    std::string nameLower = stmt.name;
+    std::ranges::transform(nameLower, nameLower.begin(), ::tolower);
+    
     llvm::Function* subFunc = llvm::Function::Create(
         llvm::FunctionType::get(voidTy, {}, false),
         llvm::Function::InternalLinkage,
-        "sub_" + stmt.name,
+        "sub_" + nameLower,
         module.get()
     );
 
-    subroutines[stmt.name] = subFunc;
+    subroutines[nameLower] = subFunc;
 
     llvm::BasicBlock* savedBlock = currentBlock;
-    auto savedBuilder = builder->saveIP();
+    const auto savedBuilder = builder->saveIP();
 
     llvm::BasicBlock* subEntry = llvm::BasicBlock::Create(*context, "entry", subFunc);
     builder->SetInsertPoint(subEntry);
@@ -631,8 +635,11 @@ llvm::Value* CodeGenerator::generateCallExpr(const CallExpression& expr) {
             }
         }
     } else if (CAST(Identifier, ident, expr.callee.get())) {
-        if (subroutines.contains(ident->name)) {
-            builder->CreateCall(subroutines[ident->name]);
+        std::string identNameLower = ident->name;
+        std::ranges::transform(identNameLower, identNameLower.begin(), ::tolower);
+        
+        if (subroutines.contains(identNameLower)) {
+            builder->CreateCall(subroutines[identNameLower]);
             return builder->CreateCall(valueFromString,
                 {createStringConstant("")});
         }
@@ -684,10 +691,13 @@ llvm::GlobalVariable* CodeGenerator::createVariable(const std::string& name) con
 }
 
 llvm::GlobalVariable* CodeGenerator::getOrCreateVariable(const std::string& name) {
-    if (!variables.contains(name)) {
-        variables[name] = createVariable(name);
+    std::string nameLower = name;
+    std::ranges::transform(nameLower, nameLower.begin(), ::tolower);
+    
+    if (!variables.contains(nameLower)) {
+        variables[nameLower] = createVariable(nameLower);
     }
-    return variables[name];
+    return variables[nameLower];
 }
 
 llvm::BasicBlock* CodeGenerator::createBlock(const std::string& name) const {

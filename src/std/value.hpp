@@ -41,7 +41,7 @@ extern "C" Primitive* value_sub(const Primitive* left, const Primitive* right);
 extern "C" Primitive* value_mul(const Primitive* left, const Primitive* right);
 extern "C" Primitive* value_div(const Primitive* left, const Primitive* right);
 
-static int compare_values(Primitive* left, Primitive* right);
+static int compare_values(Primitive* left, Primitive* right, bool isArray = false);
 static int compare_arrays(Primitive* left, Primitive* right);
 extern "C" int value_eq(Primitive* left, Primitive* right);
 extern "C" int value_neq(Primitive* left, Primitive* right);

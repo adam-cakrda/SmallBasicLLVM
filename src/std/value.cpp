@@ -100,7 +100,7 @@ static int compare_arrays(Primitive* left, Primitive* right) {
             return 1;
         }
 
-        if (compare_values(val.get(), it->second.get()) != 0) {
+        if (compare_values(val.get(), it->second.get(), true) != 0) {
             return 1;
         }
     }
@@ -108,7 +108,7 @@ static int compare_arrays(Primitive* left, Primitive* right) {
     return 0;
 }
 
-static int compare_values(Primitive* left, Primitive* right) {
+static int compare_values(Primitive* left, Primitive* right, const bool isArray) {
     if (!left || !right) return 0;
 
     if (left->type == Primitive::Type::Array && right->type == Primitive::Type::Array) {
@@ -129,6 +129,10 @@ static int compare_values(Primitive* left, Primitive* right) {
 
     const std::string leftStr = value_to_string(left);
     const std::string rightStr = value_to_string(right);
+
+    if (isArray) {
+        return leftStr.compare(rightStr);
+    }
 
     std::string leftLower = leftStr;
     std::string rightLower = rightStr;

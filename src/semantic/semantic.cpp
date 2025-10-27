@@ -1,4 +1,6 @@
 #include "semantic.hpp"
+#include <ranges>
+#include <algorithm>
 
 #define CAST(Type, var, expr) auto var = dynamic_cast<Type*>(expr)
 
@@ -79,7 +81,10 @@ void SemanticAnalyzer::analyzeAssignment(const AssignmentStatement& stmt) {
                     );
                 }
 
-                if (!subroutines.contains(handlerName)) {
+                std::string handlerNameLower = handlerName;
+                std::ranges::transform(handlerNameLower, handlerNameLower.begin(), ::tolower);
+                
+                if (!subroutines.contains(handlerNameLower)) {
                     reporter.addWarning(
                         "event handler '" + handlerName + "' is not defined",
                         SourceLocation(handlerIdent->line, handlerIdent->column, handlerName.length()),
@@ -185,7 +190,10 @@ void SemanticAnalyzer::analyzeCallExpression(const CallExpression& expr) {
         }
     } else if (CAST(Identifier, ident, expr.callee.get())) {
         const std::string& subName = ident->name;
-        if (!subroutines.contains(subName)) {
+        std::string subNameLower = subName;
+        std::ranges::transform(subNameLower, subNameLower.begin(), ::tolower);
+        
+        if (!subroutines.contains(subNameLower)) {
             reporter.addError(
                 "subroutine '" + subName + "' is not defined",
                 SourceLocation(ident->line, ident->column, subName.length()),
@@ -202,18 +210,23 @@ void SemanticAnalyzer::analyzeCallExpression(const CallExpression& expr) {
 }
 
 void SemanticAnalyzer::checkVariable(const std::string& name, size_t line, size_t col) {
-    if (!variables.contains(name)) {
+    std::string nameLower = name;
+    std::ranges::transform(nameLower, nameLower.begin(), ::tolower);
+    
+    if (!variables.contains(nameLower)) {
         reporter.addNote(
             "first use of variable '" + name + "'",
             SourceLocation(line, col, name.length()),
             "variables are implicitly initialized to 0 or empty string"
         );
-        variables.insert(name);
+        variables.insert(nameLower);
     }
 }
 
 void SemanticAnalyzer::defineVariable(const std::string& name) {
-    variables.insert(name);
+    std::string nameLower = name;
+    std::ranges::transform(nameLower, nameLower.begin(), ::tolower);
+    variables.insert(nameLower);
 }
 
 void SemanticAnalyzer::defineLabel(const std::string& name, const size_t line, const size_t col) {
@@ -228,14 +241,17 @@ void SemanticAnalyzer::defineLabel(const std::string& name, const size_t line, c
 }
 
 void SemanticAnalyzer::defineSubroutine(const std::string& name, const size_t line, const size_t col) {
-    if (subroutines.contains(name)) {
+    std::string nameLower = name;
+    std::ranges::transform(nameLower, nameLower.begin(), ::tolower);
+    
+    if (subroutines.contains(nameLower)) {
         reporter.addError(
             "subroutine '" + name + "' is already defined",
             SourceLocation(line, col, name.length()),
             "each subroutine must be unique"
         );
     }
-    subroutines.insert(name);
+    subroutines.insert(nameLower);
 }
 
 void SemanticAnalyzer::checkGotoTarget(const std::string& label, const size_t line, const size_t col) {
