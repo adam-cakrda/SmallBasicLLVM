@@ -35,7 +35,7 @@ add_executable(SmallBasicLLVM src/main.cpp
         src/semantic/semantic.cpp
         src/codegen/codegen.cpp)
 
-target_compile_definitions(SmallBasicLLVM PRIVATE VERSION="0.9.0")
+target_compile_definitions(SmallBasicLLVM PRIVATE VERSION="0.9.1")
 target_link_libraries(SmallBasicLLVM ${llvm_libs} spdlog::spdlog)
 
 add_library(SmallBasicLibrary STATIC
@@ -45,4 +45,5 @@ add_library(SmallBasicLibrary STATIC
         src/std/textwindow.cpp
         src/std/clock.cpp
         src/std/math.cpp
+        src/std/program.cpp
 )

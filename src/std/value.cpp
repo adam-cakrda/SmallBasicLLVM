@@ -1,4 +1,7 @@
 #include "value.hpp"
+#include <ranges>
+
+std::vector<std::string> g_program_arguments;
 
 extern "C" Primitive* value_from_number(const double num) {
     return new Primitive(num);
@@ -14,6 +17,16 @@ extern "C" double value_to_number(const Primitive* val) {
     if (val->type == Primitive::Type::Number) {
         return val->numberValue;
     } else if (val->type == Primitive::Type::String) {
+
+        std::string strLower = val->stringValue;
+        std::ranges::transform(strLower, strLower.begin(), ::tolower);
+        
+        if (strLower == "true") {
+            return 1.0;
+        } else if (strLower == "false") {
+            return 0.0;
+        }
+
         try {
             return std::stod(val->stringValue);
         } catch (...) {
@@ -76,8 +89,35 @@ extern "C" Primitive* value_div(const Primitive* left, const Primitive* right) {
     return new Primitive(value_to_number(left) / divisor);
 }
 
+static int compare_arrays(Primitive* left, Primitive* right) {
+    if (left == right) return 0;
+
+    if (left->arrayData.size() != right->arrayData.size()) return 1;
+
+    for (const auto& [key, val] : left->arrayData) {
+        auto it = right->arrayData.find(key);
+        if (it == right->arrayData.end()) {
+            return 1;
+        }
+
+        if (compare_values(val.get(), it->second.get()) != 0) {
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
 static int compare_values(Primitive* left, Primitive* right) {
     if (!left || !right) return 0;
+
+    if (left->type == Primitive::Type::Array && right->type == Primitive::Type::Array) {
+        return compare_arrays(left, right);
+    }
+
+    if (left->type == Primitive::Type::Array || right->type == Primitive::Type::Array) {
+        return 1;
+    }
 
     if (left->type == Primitive::Type::Number &&
         right->type == Primitive::Type::Number) {
@@ -87,11 +127,17 @@ static int compare_values(Primitive* left, Primitive* right) {
         return 0;
     }
 
-    std::string leftStr = value_to_string(left);
-    std::string rightStr = value_to_string(right);
+    const std::string leftStr = value_to_string(left);
+    const std::string rightStr = value_to_string(right);
 
-    std::ranges::transform(leftStr, leftStr.begin(), ::tolower);
-    std::ranges::transform(rightStr, rightStr.begin(), ::tolower);
+    std::string leftLower = leftStr;
+    std::string rightLower = rightStr;
+    std::ranges::transform(leftLower, leftLower.begin(), ::tolower);
+    std::ranges::transform(rightLower, rightLower.begin(), ::tolower);
+
+    if (leftLower == "true" && rightLower == "true") {
+        return 0;
+    }
 
     return leftStr.compare(rightStr);
 }

@@ -8,13 +8,15 @@
 enum class ParamType {
     Number,
     String,
+    Array,
     Any
 };
 
 enum class ReturnType {
     Void,
     Number,
-    String
+    String,
+    Array
 };
 
 struct FunctionInfo {
@@ -33,13 +35,23 @@ using PropertyRegistry  = std::unordered_map<std::string, std::unordered_map<std
 struct Registry {
     FunctionRegistry functions = {
         {"textwindow", {
-            {"writeline", {{ParamType::Any}, ReturnType::Void}},
-            {"write", {{ParamType::Any}, ReturnType::Void}},
-            {"read", {{}, ReturnType::String}}
+            {"writeline", {{ParamType::String}, ReturnType::Void}},
+            {"write", {{ParamType::String}, ReturnType::Void}},
+            {"read", {{}, ReturnType::String}},
+            {"pause",  {{}, ReturnType::Void}}
         }},
         {"math", {
             {"abs", {{ParamType::Number}, ReturnType::Number}}
-        }}
+        }},
+        {"program", {
+            {"delay",{{ParamType::Number}, ReturnType::Void}},
+            {"getargument",{{ParamType::Number}, ReturnType::Number}},
+            {"end",{{}, ReturnType::Void}},
+        }},
+        {"array", {
+            {"containsindex", {{ParamType::Array, ParamType::Any}, ReturnType::String}},
+            {"getitemcount", {{ParamType::Array}, ReturnType::Number}}
+        }},
     };
 
     PropertyRegistry properties = {
@@ -48,6 +60,9 @@ struct Registry {
         }},
         {"clock", {
             {"date", {ReturnType::Number, true}}
+        }},
+        {"program", {
+            {"argumentcount", {ReturnType::Number, true}}
         }},
     };
 
@@ -122,6 +137,7 @@ struct Registry {
         switch (type) {
             case ParamType::Number: return "Number";
             case ParamType::String: return "String";
+            case ParamType::Array:  return "Array";
             case ParamType::Any:    return "Any";
         }
         return "Unknown";
@@ -132,6 +148,7 @@ struct Registry {
             case ReturnType::Void:   return "Void";
             case ReturnType::Number: return "Number";
             case ReturnType::String: return "String";
+            case ReturnType::Array:  return "Array";
         }
         return "Unknown";
     }

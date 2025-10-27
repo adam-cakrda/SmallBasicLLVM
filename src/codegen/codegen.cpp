@@ -64,7 +64,7 @@ bool CodeGenerator::generate(const Program& program, const std::string& moduleNa
 void CodeGenerator::declareRuntimeFunctions() {
     // void runtime_init()
     runtimeInit = llvm::Function::Create(
-        llvm::FunctionType::get(voidTy, {}, false),
+        llvm::FunctionType::get(voidTy, {i32Ty, i8PtrTy}, false),
         llvm::Function::ExternalLinkage,
         "runtime_init",
         module.get()
@@ -121,7 +121,7 @@ void CodeGenerator::declareRuntimeFunctions() {
 
     // void array_set(Value*, Value*, Value*)
     arraySet = llvm::Function::Create(
-        llvm::FunctionType::get(voidTy, {valuePtrTy, valuePtrTy, valuePtrTy}, false),
+        llvm::FunctionType::get(valuePtrTy, {valuePtrTy, valuePtrTy, valuePtrTy}, false),
         llvm::Function::ExternalLinkage,
         "array_set",
         module.get()
@@ -166,17 +166,29 @@ void CodeGenerator::declareRuntimeFunctions() {
 }
 
 void CodeGenerator::createMainFunction() {
+    const std::vector<llvm::Type*> mainParams = {
+        i32Ty,
+        llvm::PointerType::get(*context, 0)
+    };
+
     mainFunction = llvm::Function::Create(
-        llvm::FunctionType::get(i32Ty, {}, false),
+        llvm::FunctionType::get(i32Ty, mainParams, false),
         llvm::Function::ExternalLinkage,
         "main",
         module.get()
     );
 
+    auto argIt = mainFunction->arg_begin();
+    argIt->setName("argc");
+    ++argIt;
+    argIt->setName("argv");
+
     currentBlock = llvm::BasicBlock::Create(*context, "entry", mainFunction);
     builder->SetInsertPoint(currentBlock);
 
-    builder->CreateCall(runtimeInit);
+    auto argc = mainFunction->getArg(0);
+    auto argv = mainFunction->getArg(1);
+    builder->CreateCall(runtimeInit, {argc, argv});
 }
 
 void CodeGenerator::generateStatement(Statement& stmt) {
@@ -218,9 +230,17 @@ void CodeGenerator::assignToVariable(const std::string& name, llvm::Value* value
 }
 
 void CodeGenerator::assignToArray(const ArrayAccess& access, llvm::Value* value) {
-    llvm::Value* array = generateExpression(*access.array);
-    llvm::Value* index = generateExpression(*access.index);
-    builder->CreateCall(arraySet, {array, index, value});
+    if (CAST(Identifier, ident, access.array.get())) {
+        llvm::GlobalVariable* arrayVar = getOrCreateVariable(ident->name);
+        llvm::Value* array = builder->CreateLoad(valuePtrTy, arrayVar);
+        llvm::Value* index = generateExpression(*access.index);
+        llvm::Value* newArray = builder->CreateCall(arraySet, {array, index, value});
+        builder->CreateStore(newArray, arrayVar);
+    } else {
+        llvm::Value* array = generateExpression(*access.array);
+        llvm::Value* index = generateExpression(*access.index);
+        builder->CreateCall(arraySet, {array, index, value});
+    }
 }
 
 void CodeGenerator::assignToProperty(const PropertyAccess& access, llvm::Value* value) {

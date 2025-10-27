@@ -26,6 +26,7 @@ struct SmallBasicValue {
           stringValue(other.stringValue), arrayData(other.arrayData) {}
 } typedef Primitive;
 
+extern std::vector<std::string> g_program_arguments;
 extern std::unordered_map<std::string, std::unordered_map<std::string, std::function<SmallBasicValue()>>> g_property_getters;
 extern std::unordered_map<std::string, std::unordered_map<std::string, std::function<void(const SmallBasicValue&)>>> g_property_setters;
 
@@ -41,6 +42,7 @@ extern "C" Primitive* value_mul(const Primitive* left, const Primitive* right);
 extern "C" Primitive* value_div(const Primitive* left, const Primitive* right);
 
 static int compare_values(Primitive* left, Primitive* right);
+static int compare_arrays(Primitive* left, Primitive* right);
 extern "C" int value_eq(Primitive* left, Primitive* right);
 extern "C" int value_neq(Primitive* left, Primitive* right);
 extern "C" int value_lt(Primitive* left, Primitive* right);
@@ -49,7 +51,7 @@ extern "C" int value_lte(Primitive* left, Primitive* right);
 extern "C" int value_gte(Primitive* left, Primitive* right);
 
 extern "C" Primitive* array_get(Primitive* array, Primitive* index);
-extern "C" void array_set(Primitive* array, Primitive* index, Primitive* value);
+extern "C" Primitive* array_set(Primitive* array, Primitive* index, Primitive* value);
 
 extern "C" Primitive* property_get(const char* object, const char* property);
 extern "C" void property_set(const char* object, const char* property, Primitive* value);
