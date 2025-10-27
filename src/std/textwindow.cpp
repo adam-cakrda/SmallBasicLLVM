@@ -33,11 +33,18 @@ extern "C" void textwindow_pause() {
     std::cout << "Press any key to continue...";
     std::cin.get();
 }
+extern "C" void textwindow_clear() {
+#ifdef _WIN32
+    system("cls");
+#elif __LINUX__
+    system("clear");
+#endif
+}
 
 extern "C" Primitive* textwindow_title_get() {
     std::string result = "Not implemented";
 #ifdef __linux__
-    // on linux is very tricky
+    // on linux it is very tricky
 #elif _WIN32
     char wnd_title[256];
     HWND hwnd=GetForegroundWindow();

@@ -38,7 +38,7 @@ struct Registry {
             {"writeline", {{ParamType::String}, ReturnType::Void}},
             {"write", {{ParamType::String}, ReturnType::Void}},
             {"read", {{}, ReturnType::String}},
-            {"pause",  {{}, ReturnType::Void}}
+            {"pause",  {{}, ReturnType::Void}},
         }},
         {"math", {
             {"abs", {{ParamType::Number}, ReturnType::Number}}
@@ -50,7 +50,13 @@ struct Registry {
         }},
         {"array", {
             {"containsindex", {{ParamType::Array, ParamType::Any}, ReturnType::String}},
-            {"getitemcount", {{ParamType::Array}, ReturnType::Number}}
+            {"containsvalue", {{ParamType::Array, ParamType::Any}, ReturnType::String}},
+            {"getitemcount", {{ParamType::Array}, ReturnType::Number}},
+            {"getallindices", {{ParamType::Array}, ReturnType::Array}},
+            {"isarray", {{ParamType::Array}, ReturnType::String}},
+            {"setvalue", {{ParamType::String, ParamType::Any, ParamType::Any}, ReturnType::Void}},
+            {"getvalue", {{ParamType::String, ParamType::Any}, ReturnType::String}},
+            {"removevalue", {{ParamType::String, ParamType::Any}, ReturnType::Void}}
         }},
     };
 
@@ -59,7 +65,17 @@ struct Registry {
                 {"title", {ReturnType::String, false}}
         }},
         {"clock", {
-            {"date", {ReturnType::Number, true}}
+            {"time", {ReturnType::String, true}},
+            {"date", {ReturnType::String, true}},
+            {"year", {ReturnType::Number, true}},
+            {"month", {ReturnType::Number, true}},
+            {"day", {ReturnType::Number, true}},
+            {"weekday", {ReturnType::String, true}},
+            {"hour", {ReturnType::Number, true}},
+            {"minute", {ReturnType::Number, true}},
+            {"second", {ReturnType::Number, true}},
+            {"millisecond", {ReturnType::Number, true}},
+            {"elapsedmilliseconds", {ReturnType::Number, true}}
         }},
         {"program", {
             {"argumentcount", {ReturnType::Number, true}}

@@ -137,6 +137,8 @@ void SemanticAnalyzer::analyzeArrayAccess(const ArrayAccess& expr, const bool is
         } else {
             checkVariable(ident->name, ident->line, ident->column);
         }
+    } else if (CAST(ArrayAccess, nestedAccess, expr.array.get())) {
+        analyzeArrayAccess(*nestedAccess, isAssignment);
     } else {
         analyzeExpression(*expr.array);
     }

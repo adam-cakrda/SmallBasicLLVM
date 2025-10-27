@@ -91,7 +91,6 @@ private:
     llvm::GlobalVariable* getOrCreateVariable(const std::string& name);
     llvm::BasicBlock* createBlock(const std::string& name) const;
     llvm::Value* createStringConstant(const std::string& str) const;
-
     llvm::Function* getOrDeclareStdFunction(const std::string& object,
                                             const std::string& method,
                                             const FunctionInfo& info);
@@ -100,4 +99,5 @@ private:
     void assignToVariable(const std::string& name, llvm::Value* value);
     void assignToArray(const ArrayAccess& access, llvm::Value* value);
     void assignToProperty(const PropertyAccess& access, llvm::Value* value);
+    void assignToNestedArray(const ArrayAccess& access, llvm::Value* value);
 };

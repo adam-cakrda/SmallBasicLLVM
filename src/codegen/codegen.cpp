@@ -237,6 +237,8 @@ void CodeGenerator::assignToArray(const ArrayAccess& access, llvm::Value* value)
         llvm::Value* index = generateExpression(*access.index);
         llvm::Value* newArray = builder->CreateCall(arraySet, {array, index, value});
         builder->CreateStore(newArray, arrayVar);
+    } else if (CAST(ArrayAccess, nestedAccess, access.array.get())) {
+        assignToNestedArray(access, value);
     } else {
         llvm::Value* array = generateExpression(*access.array);
         llvm::Value* index = generateExpression(*access.index);
@@ -263,6 +265,60 @@ void CodeGenerator::assignToProperty(const PropertyAccess& access, llvm::Value* 
             builder->CreateCall(fn, {value});
             return;
         }
+    }
+}
+
+void CodeGenerator::assignToNestedArray(const ArrayAccess& access, llvm::Value* value) {
+    // Collect the chain of array accesses from root to leaf
+    std::vector<Expression*> indices;
+    Expression* root = nullptr;
+    
+    const ArrayAccess* current = &access;
+    while (current) {
+        indices.push_back(current->index.get());
+        
+        if (CAST(ArrayAccess, nextAccess, current->array.get())) {
+            current = nextAccess;
+        } else {
+            root = current->array.get();
+            current = nullptr;
+        }
+    }
+    
+    // Reverse to get correct order (root to leaf)
+    std::reverse(indices.begin(), indices.end());
+    
+    // The root must be an identifier for us to store back
+    if (CAST(Identifier, rootIdent, root)) {
+        llvm::GlobalVariable* rootVar = getOrCreateVariable(rootIdent->name);
+        llvm::Value* rootArray = builder->CreateLoad(valuePtrTy, rootVar);
+        
+        // Navigate through the chain and collect intermediate values
+        std::vector<llvm::Value*> intermediateArrays;
+        std::vector<llvm::Value*> indexValues;
+        
+        llvm::Value* currentArray = rootArray;
+        intermediateArrays.push_back(currentArray);
+        
+        // Navigate to each level except the last
+        for (size_t i = 0; i < indices.size() - 1; ++i) {
+            llvm::Value* idx = generateExpression(*indices[i]);
+            indexValues.push_back(idx);
+            currentArray = builder->CreateCall(arrayGet, {currentArray, idx});
+            intermediateArrays.push_back(currentArray);
+        }
+        
+        // Set the final value at the deepest level
+        llvm::Value* finalIndex = generateExpression(*indices.back());
+        currentArray = builder->CreateCall(arraySet, {currentArray, finalIndex, value});
+        
+        // Propagate changes back up the chain
+        for (int i = static_cast<int>(indexValues.size()) - 1; i >= 0; --i) {
+            currentArray = builder->CreateCall(arraySet, {intermediateArrays[i], indexValues[i], currentArray});
+        }
+        
+        // Store the updated root array back to the variable
+        builder->CreateStore(currentArray, rootVar);
     }
 }
 

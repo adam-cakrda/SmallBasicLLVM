@@ -1,3 +1,4 @@
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -11,5 +12,6 @@ extern "C" void runtime_init(const int argc, char** argv) {
 }
 
 extern "C" void runtime_cleanup() {
-
+    std::cout << "Press any key to continue...";
+    std::cin.get();
 }
