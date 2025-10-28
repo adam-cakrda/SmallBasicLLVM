@@ -13,8 +13,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         include:
-          - os: ubuntu-latest-linux
-            compiler_binary: SmallBasicLLVM-Linux
+          - os: ubuntu-latest
+            artifact_name: SmallBasicLLVM-Linux
+            compiler_binary: SmallBasicCompiler
             library_binary: libSmallBasicLibrary.a
           - os: windows-latest
             artifact_name: SmallBasicLLVM-Windows
@@ -49,19 +50,15 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Download and install LLVM 21
-        $llvmUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.0/LLVM-21.1.0-win64.exe"
-        $llvmInstaller = "$env:TEMP\llvm-installer.exe"
-        Invoke-WebRequest -Uri $llvmUrl -OutFile $llvmInstaller
-        Start-Process -FilePath $llvmInstaller -ArgumentList "/S" -Wait
+        choco install llvm --version=21.0.0 -y
         echo "LLVM_DIR=C:\Program Files\LLVM\lib\cmake\llvm" >> $env:GITHUB_ENV
         echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+    
 
     - name: Install dependencies (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Install vcpkg dependencies
         vcpkg install spdlog:x64-windows cxxopts:x64-windows
         echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
 
