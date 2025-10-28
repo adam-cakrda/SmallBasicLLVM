@@ -44,7 +44,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build libspdlog-dev libcxxopts-dev
 
-      - name: Install MSYS2 + LLVM + Clang + Dependencies (Windows)
+      - name: Install MSYS2 + GCC + LLVM + Dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -52,12 +52,12 @@ jobs:
           refreshenv
           & "C:/msys64/usr/bin/bash.exe" -lc "pacman -Syu --noconfirm"
           & "C:/msys64/usr/bin/bash.exe" -lc "pacman -S --noconfirm \
-            mingw-w64-clang-x86_64-llvm \
-            mingw-w64-clang-x86_64-clang \
-            mingw-w64-clang-x86_64-cmake \
-            mingw-w64-clang-x86_64-ninja \
-            mingw-w64-clang-x86_64-spdlog \
-            mingw-w64-clang-x86_64-cxxopts"
+            mingw-w64-x86_64-gcc \
+            mingw-w64-x86_64-llvm \
+            mingw-w64-x86_64-cmake \
+            mingw-w64-x86_64-ninja \
+            mingw-w64-x86_64-spdlog \
+            mingw-w64-x86_64-cxxopts"
           echo "LLVM_DIR=C:/msys64/mingw64/lib/cmake/llvm" >> $env:GITHUB_ENV
           echo "C:/msys64/mingw64/bin" >> $env:GITHUB_PATH
 
@@ -72,8 +72,8 @@ jobs:
         run: |
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_C_COMPILER=clang `
-            -DCMAKE_CXX_COMPILER=clang++ `
+            -DCMAKE_C_COMPILER=gcc `
+            -DCMAKE_CXX_COMPILER=g++ `
             -DCMAKE_PREFIX_PATH="C:/msys64/mingw64" `
             -DLLVM_DIR="${env:LLVM_DIR}"
 
@@ -98,25 +98,4 @@ jobs:
       - name: Create ZIP archive
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: artifacts/*
-          retention-days: 90
-
-      - name: Create Release ZIP (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          cd artifacts
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            zip -r ../${{ matrix.artifact_name }}.zip *
-          else
-            powershell Compress-Archive -Path * -DestinationPath ../${{ matrix.artifact_name }}.zip
-          fi
-        shell: bash
-
-      - name: Upload Release Asset
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: ${{ matrix.artifact_name }}.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ matrix
