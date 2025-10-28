@@ -42,25 +42,24 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libspdlog-dev
-          sudo wget -O /usr/include/cxxopts.hpp https://raw.githubusercontent.com/jarro2783/cxxopts/master/include/cxxopts.hpp
+          sudo apt-get install -y cmake ninja-build libspdlog-dev libcxxopts-dev
 
-      - name: Install LLVM + Ninja (Windows)
+      - name: Install MSYS2 + LLVM + Clang + Dependencies (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install llvm --version=21.1.0 -y
-          choco install ninja -y
-          echo "LLVM_DIR=C:\Program Files\LLVM\lib\cmake\llvm" >> $env:GITHUB_ENV
-          echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
-          echo "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
-
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          vcpkg install spdlog:x64-windows cxxopts:x64-windows
-          echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
+          choco install -y msys2
+          refreshenv
+          & "C:/msys64/usr/bin/bash.exe" -lc "pacman -Syu --noconfirm"
+          & "C:/msys64/usr/bin/bash.exe" -lc "pacman -S --noconfirm \
+            mingw-w64-clang-x86_64-llvm \
+            mingw-w64-clang-x86_64-clang \
+            mingw-w64-clang-x86_64-cmake \
+            mingw-w64-clang-x86_64-ninja \
+            mingw-w64-clang-x86_64-spdlog \
+            mingw-w64-clang-x86_64-cxxopts"
+          echo "LLVM_DIR=C:/msys64/mingw64/lib/cmake/llvm" >> $env:GITHUB_ENV
+          echo "C:/msys64/mingw64/bin" >> $env:GITHUB_PATH
 
       - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
@@ -71,12 +70,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $toolchain = "${env:CMAKE_TOOLCHAIN_FILE}"
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=clang `
             -DCMAKE_CXX_COMPILER=clang++ `
-            -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
+            -DCMAKE_PREFIX_PATH="C:/msys64/mingw64" `
             -DLLVM_DIR="${env:LLVM_DIR}"
 
       - name: Build
