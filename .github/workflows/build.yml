@@ -45,16 +45,15 @@ jobs:
           sudo apt-get install -y cmake ninja-build libspdlog-dev
           sudo wget -O /usr/include/cxxopts.hpp https://raw.githubusercontent.com/jarro2783/cxxopts/master/include/cxxopts.hpp
 
-      - name: Install LLVM + Ninja + MinGW (Windows)
+      - name: Install LLVM + Ninja (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           choco install llvm --version=21.1.0 -y
           choco install ninja -y
-          choco install mingw -y
           echo "LLVM_DIR=C:\Program Files\LLVM\lib\cmake\llvm" >> $env:GITHUB_ENV
           echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
-          echo "C:\tools\mingw64\bin" >> $env:GITHUB_PATH
+          echo "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
@@ -72,7 +71,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=$env:CMAKE_TOOLCHAIN_FILE -DLLVM_DIR="$env:LLVM_DIR"
+          cmake -B build -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=clang `
+            -DCMAKE_CXX_COMPILER=clang++ `
+            -DCMAKE_TOOLCHAIN_FILE=$env:CMAKE_TOOLCHAIN_FILE `
+            -DLLVM_DIR="$env:LLVM_DIR"
 
       - name: Build
         run: cmake --build build --config Release
