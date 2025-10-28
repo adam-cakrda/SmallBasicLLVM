@@ -50,7 +50,7 @@ jobs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        choco install llvm --version=21.0.0 -y
+        choco install llvm --version=21.1.0 -y
         echo "LLVM_DIR=C:\Program Files\LLVM\lib\cmake\llvm" >> $env:GITHUB_ENV
         echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
     
