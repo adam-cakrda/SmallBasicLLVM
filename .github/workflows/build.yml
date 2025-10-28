@@ -1,0 +1,121 @@
+name: Build SmallBasicLLVM
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest-linux
+            compiler_binary: SmallBasicLLVM-Linux
+            library_binary: libSmallBasicLibrary.a
+          - os: windows-latest
+            artifact_name: SmallBasicLLVM-Windows
+            compiler_binary: SmallBasicCompiler.exe
+            library_binary: libSmallBasicLibrary.a
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install LLVM 21 (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 21
+        sudo apt-get install -y llvm-21-dev libllvm21 llvm-21-tools
+        echo "LLVM_DIR=/usr/lib/llvm-21/lib/cmake/llvm" >> $GITHUB_ENV
+        echo "/usr/lib/llvm-21/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build libspdlog-dev
+        # Install cxxopts
+        sudo wget -O /usr/include/cxxopts.hpp https://raw.githubusercontent.com/jarro2783/cxxopts/master/include/cxxopts.hpp
+
+    - name: Install LLVM 21 (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Download and install LLVM 21
+        $llvmUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.0/LLVM-21.1.0-win64.exe"
+        $llvmInstaller = "$env:TEMP\llvm-installer.exe"
+        Invoke-WebRequest -Uri $llvmUrl -OutFile $llvmInstaller
+        Start-Process -FilePath $llvmInstaller -ArgumentList "/S" -Wait
+        echo "LLVM_DIR=C:\Program Files\LLVM\lib\cmake\llvm" >> $env:GITHUB_ENV
+        echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
+
+    - name: Install dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Install vcpkg dependencies
+        vcpkg install spdlog:x64-windows cxxopts:x64-windows
+        echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
+
+    - name: Configure CMake (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=$LLVM_DIR
+
+    - name: Configure CMake (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=$env:CMAKE_TOOLCHAIN_FILE -DLLVM_DIR="$env:LLVM_DIR"
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Prepare artifacts (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        mkdir -p artifacts
+        cp build/${{ matrix.compiler_binary }} artifacts/
+        cp build/${{ matrix.library_binary }} artifacts/
+
+    - name: Prepare artifacts (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path artifacts
+        Copy-Item "build\Release\${{ matrix.compiler_binary }}" -Destination artifacts\
+        Copy-Item "build\Release\${{ matrix.library_binary }}" -Destination artifacts\
+
+    - name: Create ZIP archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: artifacts/*
+        retention-days: 90
+
+    - name: Create Release ZIP (on tag)
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        cd artifacts
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          zip -r ../${{ matrix.artifact_name }}.zip *
+        else
+          powershell Compress-Archive -Path * -DestinationPath ../${{ matrix.artifact_name }}.zip
+        fi
+      shell: bash
+
+    - name: Upload Release Asset
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ matrix.artifact_name }}.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
