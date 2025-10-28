@@ -2,10 +2,16 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/MC/TargetRegistry.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetOptions.h>
+#include <llvm/TargetParser/Host.h>
 #include <spdlog/spdlog.h>
 #include <algorithm>
-#include <ranges>
 #include <cctype>
+#include <filesystem>
 
 #define CAST(Type, var, expr) auto var = dynamic_cast<Type*>(expr)
 
@@ -269,7 +275,6 @@ void CodeGenerator::assignToProperty(const PropertyAccess& access, llvm::Value* 
 }
 
 void CodeGenerator::assignToNestedArray(const ArrayAccess& access, llvm::Value* value) {
-    // Collect the chain of array accesses from root to leaf
     std::vector<Expression*> indices;
     Expression* root = nullptr;
     
@@ -284,40 +289,33 @@ void CodeGenerator::assignToNestedArray(const ArrayAccess& access, llvm::Value* 
             current = nullptr;
         }
     }
-    
-    // Reverse to get correct order (root to leaf)
-    std::reverse(indices.begin(), indices.end());
-    
-    // The root must be an identifier for us to store back
+
+    std::ranges::reverse(indices);
+
     if (CAST(Identifier, rootIdent, root)) {
         llvm::GlobalVariable* rootVar = getOrCreateVariable(rootIdent->name);
         llvm::Value* rootArray = builder->CreateLoad(valuePtrTy, rootVar);
-        
-        // Navigate through the chain and collect intermediate values
+
         std::vector<llvm::Value*> intermediateArrays;
         std::vector<llvm::Value*> indexValues;
         
         llvm::Value* currentArray = rootArray;
         intermediateArrays.push_back(currentArray);
-        
-        // Navigate to each level except the last
+
         for (size_t i = 0; i < indices.size() - 1; ++i) {
             llvm::Value* idx = generateExpression(*indices[i]);
             indexValues.push_back(idx);
             currentArray = builder->CreateCall(arrayGet, {currentArray, idx});
             intermediateArrays.push_back(currentArray);
         }
-        
-        // Set the final value at the deepest level
+
         llvm::Value* finalIndex = generateExpression(*indices.back());
         currentArray = builder->CreateCall(arraySet, {currentArray, finalIndex, value});
-        
-        // Propagate changes back up the chain
+
         for (int i = static_cast<int>(indexValues.size()) - 1; i >= 0; --i) {
             currentArray = builder->CreateCall(arraySet, {intermediateArrays[i], indexValues[i], currentArray});
         }
-        
-        // Store the updated root array back to the variable
+
         builder->CreateStore(currentArray, rootVar);
     }
 }
@@ -767,7 +765,7 @@ llvm::Value* CodeGenerator::createStringConstant(const std::string& str) const {
     return builder->CreateInBoundsGEP(valueTy, gv, {zero32, zero32});
 }
 
-void CodeGenerator::emit(const std::string& filename) const {
+void CodeGenerator::emitIR(const std::string& filename) const {
     std::error_code ec;
     llvm::raw_fd_ostream out(filename, ec, llvm::sys::fs::OF_None);
     
@@ -777,4 +775,67 @@ void CodeGenerator::emit(const std::string& filename) const {
     }
     
     module->print(out, nullptr);
+}
+
+void CodeGenerator::emitObjectFile(const std::string& filename) const {
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
+
+#if LLVM_VERSION_MAJOR >= 21
+    const llvm::Triple targetTriple(llvm::sys::getDefaultTargetTriple());
+#else
+    const std::string targetTriple = llvm::sys::getDefaultTargetTriple();
+#endif
+
+
+    this->module->setTargetTriple(targetTriple);
+
+    std::string error;
+    const llvm::Target* target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
+
+    if (!target) {
+        spdlog::error("Failed to lookup target: {}", error);
+        exit(1);
+    }
+
+    const auto cpu = "generic";
+    const char* features = "";
+
+    const llvm::TargetOptions opt;
+    llvm::TargetMachine* targetMachine = target->createTargetMachine(
+        targetTriple, cpu, features, opt, llvm::Reloc::PIC_);
+
+    if (!targetMachine) {
+        spdlog::error("Failed to create target machine");
+        exit(1);
+    }
+
+    module->setDataLayout(targetMachine->createDataLayout());
+
+    std::error_code ec;
+    llvm::raw_fd_ostream dest(filename, ec, llvm::sys::fs::OF_None);
+
+    if (ec) {
+        spdlog::error("Could not open file for writing: {}", ec.message());
+        delete targetMachine;
+        exit(1);
+    }
+
+    llvm::legacy::PassManager pass;
+    constexpr auto fileType = llvm::CodeGenFileType::ObjectFile;
+
+    if (targetMachine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
+        spdlog::error("TargetMachine can't emit a file of this type");
+        delete targetMachine;
+        exit(1);
+    }
+
+    pass.run(*module);
+    dest.flush();
+
+    delete targetMachine;
+    spdlog::debug("Successfully generated object file: {}", filename);
 }

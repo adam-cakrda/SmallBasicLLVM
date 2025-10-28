@@ -78,7 +78,8 @@ struct Registry {
             {"elapsedmilliseconds", {ReturnType::Number, true}}
         }},
         {"program", {
-            {"argumentcount", {ReturnType::Number, true}}
+            {"argumentcount", {ReturnType::Number, true}},
+            {"directory", {ReturnType::String, true}}
         }},
     };
 

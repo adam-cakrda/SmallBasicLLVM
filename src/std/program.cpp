@@ -3,6 +3,15 @@
 #include <chrono>
 #include <vector>
 #include <string>
+#include <filesystem>
+
+#ifdef _WIN32
+    #include <windows.h>
+#elif __linux__
+    #include <unistd.h>
+#endif
+
+#include "main.h"
 
 extern "C" void program_delay(const Primitive* time) {
     const auto milliseconds = static_cast<long>(value_to_number(time));
@@ -23,7 +32,26 @@ extern "C" Primitive* program_argumentcount_get() {
     return new Primitive(static_cast<double>(g_program_arguments.size()));
 }
 
+extern "C" Primitive* program_directory_get() {
+    char pBuf[512];
+    constexpr size_t len = sizeof(pBuf);
+
+#ifdef _WIN32
+    GetModuleFileName(nullptr, pBuf, len);
+#elif __linux__
+    const ssize_t count = readlink("/proc/self/exe", pBuf, len - 1);
+    if (count != -1) {
+        pBuf[count] = '\0';
+    }
+#endif
+
+    const std::filesystem::path exePath(pBuf);
+
+    return new Primitive(exePath.parent_path().string());
+}
+
 extern "C" void program_end() {
+    runtime_cleanup();
    exit(0);
 }
 

@@ -18,25 +18,24 @@ endif()
 message(STATUS "Using cxxopts.hpp from: ${CXXOPTS_INCLUDE_DIR}")
 
 include_directories(${LLVM_INCLUDE_DIRS})
-separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
-add_definitions(${LLVM_DEFINITIONS_LIST})
+add_definitions(${LLVM_DEFINITIONS})
 
-llvm_map_components_to_libnames(llvm_libs
-        core
-        support
-        bitwriter
-        irreader
+execute_process(
+        COMMAND llvm-config --libs all
+        OUTPUT_VARIABLE llvm_libs
+        OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-add_executable(SmallBasicLLVM src/main.cpp
+add_executable(SmallBasicCompiler src/main.cpp
         src/lexer/lexer.cpp
         src/parser/parser.cpp
         src/parser/ast.cpp
         src/semantic/semantic.cpp
-        src/codegen/codegen.cpp)
+        src/codegen/codegen.cpp
+        src/linker/linker.cpp)
 
-target_compile_definitions(SmallBasicLLVM PRIVATE VERSION="0.9.3")
-target_link_libraries(SmallBasicLLVM ${llvm_libs} spdlog::spdlog)
+target_compile_definitions(SmallBasicCompiler PRIVATE VERSION="0.9.4")
+target_link_libraries(SmallBasicCompiler ${llvm_libs} spdlog::spdlog)
 
 add_library(SmallBasicLibrary STATIC
         src/std/main.cpp

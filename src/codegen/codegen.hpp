@@ -17,7 +17,8 @@ public:
     explicit CodeGenerator(DiagnosticReporter& diag);
     
     bool generate(const Program& program, const std::string& moduleName);
-    void emit(const std::string& filename) const;
+    void emitIR(const std::string& filename) const;
+    void emitObjectFile(const std::string& filename) const;
 
 private:
     DiagnosticReporter& reporter;

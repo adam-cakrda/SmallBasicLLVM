@@ -14,6 +14,7 @@
 #include "parser/parser.hpp"
 #include "semantic/semantic.hpp"
 #include "codegen/codegen.hpp"
+#include "linker/linker.hpp"
 
 std::string readFile(const std::string &filePath);
 
@@ -37,11 +38,19 @@ int main(int argc, char** argv) {
 
     std::string filename = argv[1];
 
+    const std::string moduleName = getModuleName(filename);
+
     cxxopts::Options options("SmallBasicLLVM", "LLVM Compiler for SmallBasic");
     options.add_options()
+        ("std-path", "Path to libSmallBasicLibrary.a", cxxopts::value<std::string>())
         ("export-tokens", "Export tokens to file", cxxopts::value<std::string>())
         ("export-ast", "Export AST to file", cxxopts::value<std::string>())
-        ("o,output", "Output file", cxxopts::value<std::string>()->default_value("output.ll"))
+        ("export-ir", "Export LLVM IR to file", cxxopts::value<std::string>())
+#ifdef _WIN32
+    ("o,output", "Output file", cxxopts::value<std::string>()->default_value(moduleName + ".exe"))
+#elif __linux__
+    ("o,output", "Output file", cxxopts::value<std::string>()->default_value(moduleName))
+#endif
         ("h,help", "Print usage");
 
     auto result = options.parse(argc - 1, argv + 1);
@@ -56,7 +65,7 @@ int main(int argc, char** argv) {
     std::string source = readFile(filename);
     DiagnosticReporter diag(source, filename);
 
-    spdlog::info("[1/4] Lexing");
+    spdlog::info("[1/5] Lexing");
 
     Lexer lexer;
     const std::vector<Token> tokens = lexer.tokenize(source, diag);
@@ -68,7 +77,7 @@ int main(int argc, char** argv) {
         exportTokens(tokens, result["export-tokens"].as<std::string>());
     }
 
-    spdlog::info("[2/4] Parsing");
+    spdlog::info("[2/5] Parsing");
 
     Parser parser(tokens, diag);
     auto ast = parser.parse();
@@ -91,7 +100,7 @@ int main(int argc, char** argv) {
     diag.printDiagnostics();
     if (diag.hasErrorsOccurred()) return 1;
 
-    spdlog::info("[3/4] Analyzing");
+    spdlog::info("[3/5] Analyzing");
 
     SemanticAnalyzer analyzer(diag);
     analyzer.analyze(*ast);
@@ -99,11 +108,9 @@ int main(int argc, char** argv) {
     diag.printDiagnostics();
     if (diag.hasErrorsOccurred()) return 1;
 
-    spdlog::info("[4/4] Codegen");
+    spdlog::info("[4/5] Codegen");
 
     CodeGenerator codegen(diag);
-
-    const std::string moduleName = getModuleName(filename);
 
     if (!codegen.generate(*ast, moduleName)) {
         diag.printDiagnostics();
@@ -114,7 +121,24 @@ int main(int argc, char** argv) {
     if (diag.hasErrorsOccurred()) return 1;
 
     auto outputFile = result["output"].as<std::string>();
-    codegen.emit(outputFile);
+
+    if (result.count("export-ir")) {
+        codegen.emitIR(result["export-ir"].as<std::string>());
+    }
+
+    auto objectFile = moduleName + ".o";
+    codegen.emitObjectFile(objectFile);
+
+    spdlog::info("[5/5] Linking");
+
+    Linker linker(diag);
+    if (result.count("std-path")) {
+        linker.link(objectFile, outputFile, result["std-path"].as<std::string>());
+    } else {
+        linker.link(objectFile, outputFile);
+    }
+
+    std::filesystem::remove(objectFile);
 
     spdlog::info("Compiled {}.sb!", moduleName);
     return 0;

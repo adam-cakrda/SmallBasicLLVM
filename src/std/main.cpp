@@ -1,8 +1,4 @@
-#include <iostream>
-#include <string>
-#include <vector>
-
-#include "value.hpp"
+#include "main.h"
 
 extern "C" void runtime_init(const int argc, char** argv) {
     g_program_arguments.clear();
