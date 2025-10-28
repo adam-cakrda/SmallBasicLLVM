@@ -71,12 +71,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $toolchain = "${env:CMAKE_TOOLCHAIN_FILE}"
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_C_COMPILER=clang `
             -DCMAKE_CXX_COMPILER=clang++ `
-            -DCMAKE_TOOLCHAIN_FILE=$env:CMAKE_TOOLCHAIN_FILE `
-            -DLLVM_DIR="$env:LLVM_DIR"
+            -DCMAKE_TOOLCHAIN_FILE="$toolchain" `
+            -DLLVM_DIR="${env:LLVM_DIR}"
 
       - name: Build
         run: cmake --build build --config Release
